@@ -138,14 +138,20 @@ fn select_fastest_ips(hosts_map: &HashMap<String, Vec<String>>) -> HashMap<Strin
             for ip in ips {
                 match ping_ip(&ip) {
                     Ok(time) => {
-                        println!("{} {} ==> {}", domain, ip, time);
+                        let time_str = if time == MAX_PING_TIME {
+                            "timeout".to_string()
+                        } else {
+                            format!("{} ms", time)
+                        };
+                        let domain_str = format!(" {} [{}]", domain, ip);
+                        println!("{:<55} ==> {}", domain_str, time_str);
                         if time < min_time {
                             min_time = time;
                             fastest_ip = Some(ip);
                         }
                     },
-                    Err(_) => {
-                        println!("{} {} ==> timeout", domain, ip);
+                    Err(e) => {
+                        println!("{} {} ==> {}", domain, ip, e);
                         continue;
                     }
                 }
@@ -199,7 +205,7 @@ fn run_select_fastest_ips() -> Result<(), Box<dyn std::error::Error>> {
     println!("\nFastest IPs selected for {} domains", fastest_ips.len());
     println!("\nResults (domain -> ip -> ping time):");
     for (domain, (ip, time)) in &fastest_ips {
-        println!("{} -> {} -> {}ms", domain, ip, time);
+        println!("{:>40} -> {:<15} -> {}ms", domain, ip, time);
     }
     
     println!("\nWriting results to hosts file...");
@@ -238,6 +244,11 @@ fn main() {
     } else {
         println!("Temp hosts file deleted");
     }
+
+    // show press any key to exit
+    println!("Press any key to exit...");
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input).unwrap();
 }
 
 // Tests
