@@ -25,46 +25,36 @@ const MAX_PING_TIME: u32 = std::u32::MAX;
 
 // File operations
 fn download_hosts_file() -> Result<(), Box<dyn std::error::Error>> {
-    for url in URLS.iter() {
+    for &url in &URLS {
         println!("Trying to download from: {}", url);
-        match get(*url) {
-            Ok(response) => {
-                if response.status().is_success() {
-                    let content = response.text()?;
-                    let mut file = File::create(TEMP_FILE_PATH)?;
-                    file.write_all(content.as_bytes())?;
-                    println!("Successfully downloaded from: {}", url);
-                    return Ok(());
-                }
+        if let Ok(response) = get(url) {
+            if response.status().is_success() {
+                File::create(TEMP_FILE_PATH)?.write_all(response.text()?.as_bytes())?;
+                println!("Successfully downloaded from: {}", url);
+                return Ok(());
             }
-            Err(e) => {
-                println!("Failed to download from {}: {}", url, e);
-                continue;
-            }
+        } else {
+            println!("Failed to download from: {}", url);
         }
     }
     Err("All download attempts failed".into())
 }
 
 fn parse_hosts_file() -> Result<HashMap<String, Vec<String>>, Box<dyn std::error::Error>> {
-    let file = File::open(TEMP_FILE_PATH)?;
-    let reader = BufReader::new(file);
-    let mut hosts_map: HashMap<String, Vec<String>> = HashMap::new();
+    let reader = BufReader::new(File::open(TEMP_FILE_PATH)?);
+    let mut hosts_map = HashMap::new();
 
-    for line in reader.lines() {
-        let line = line?;
-        let line = line.trim();
-
-        if line.is_empty() || line.starts_with('#') {
-            continue;
-        }
-
-        let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() >= 2 {
-            let ip = parts[0].to_string();
-            let domain = parts[1].to_string();
-
-            hosts_map.entry(domain).or_insert_with(Vec::new).push(ip);
+    for line in reader
+        .lines()
+        .filter_map(Result::ok)
+        .map(|line| line.trim().to_string())
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+    {
+        if let Some((ip, domain)) = line.split_once(' ') {
+            hosts_map
+                .entry(domain.to_string())
+                .or_insert_with(Vec::new)
+                .push(ip.to_string());
         }
     }
 
@@ -148,8 +138,8 @@ fn select_fastest_ips(hosts_map: &HashMap<String, Vec<String>>) -> HashMap<Strin
                         } else {
                             format!("{} ms", time)
                         };
-                        let domain_str = format!(" {} [{}]", domain, ip);
-                        println!("{:<55} ==> {}", domain_str, time_str);
+                        let domain_str = format!(" {} [{}]", domain.trim_ascii(), ip);
+                        println!("{:<65} ==> {}", domain_str, time_str);
                         if time < min_time {
                             min_time = time;
                             fastest_ip = Some(ip);
