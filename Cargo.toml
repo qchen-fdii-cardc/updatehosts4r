@@ -7,6 +7,10 @@ license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/qchen-fdii-cardc/updatehosts4r"
 
+[[bin]]
+name = "updatehosts4r"
+path = "src/main.rs"
+
 [dependencies]
 chrono = "0.4.40"
 crossbeam = "0.8.4"
